@@ -1,4 +1,4 @@
-#Connect.py should be runnning while TS5 goes
+#Connect.py should be runnning while Display.py presents the dashboard
 
 import dash
 from dash.dependencies import Output, Input
@@ -16,24 +16,23 @@ date = date.today()
 
 app = dash.Dash(__name__)
 app.layout = html.Div(
-    html.Div([
-        html.H4('Live Twitter Sentiment'),
-        html.Div('live-update', children = []),
-        dcc.Interval(id='interval-component', interval=3*1000, n_intervals=0),
-        dcc.Graph(id='live-graph'),# animate=True),
+    [   html.H4('Live Twitter Sentiment'),
+        dcc.Graph(id='live-graph', animate=True),
+        dcc.Interval(id='interval-component', interval=3*1000, n_intervals=0),#])
         dcc.Input(id='sentiment_term', value='bitcoin', type='text')])
-        )
 
-@app.callback(Output('live-update', 'children'),
-              [Input('interval-component', 'n_intervals')])
+
+@app.callback(Output('live-graph', 'figure'),
+              [Input('graph-update', 'n_intervals')])
 
 def update_graph_scatter(sentiment_term):
     try:
         conn = sqlite3.connect('twitter_{}.db'.format(date))
         c = conn.cursor()
-        df = pd.read_sql("SELECT * FROM sentiment WHERE tweet LIKE ? ORDER BY unix DESC LIMIT 20", conn ,params=('%' + sentiment_term + '%',))
+        df = pd.read_sql("SELECT * FROM sentiment WHERE tweet LIKE ? ORDER BY unix DESC LIMIT 20", conn ,params=('%' + sentiment_term + '%'))
         df.sort_values('unix', inplace=True)
         df['sentiment_smoothed'] = df['sentiment'].rolling(int(len(df)/2)).mean()
+        print(df.head())
 
         df['date'] = pd.to_datetime(df['unix'],unit='ms')
         df.set_index('date', inplace=True)
@@ -58,8 +57,6 @@ def update_graph_scatter(sentiment_term):
         with open('errors.txt','a') as f:
             f.write(str(e))
             f.write('\n')
-
-
 
 if __name__ == '__main__':
     app.run_server(debug=True)
